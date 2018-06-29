@@ -612,10 +612,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 if (cred == null) cred = defaultCredentials;
 
                 launchCommandWithCredentials(args, workspace.getParentFile(), cred, urIish, timeout);
-			}
+            }
 
-			private void addReferenceToAlternates() {
-				if (reference != null && !reference.isEmpty()) {
+            private void addReferenceToAlternates() {
+                if (reference != null && !reference.isEmpty()) {
                     File referencePath = new File(reference);
                     if (!referencePath.exists())
                         listener.error("Reference path does not exist: " + reference);
