@@ -9,7 +9,6 @@ import hudson.util.StreamTaskListener;
 import java.io.IOException;
 import java.util.List;
 import org.apache.commons.lang.SystemUtils;
-import org.jenkinsci.plugins.gitclient.GitUsingCloneTool;
 import org.jenkinsci.plugins.gitclient.JGitApacheTool;
 import org.jenkinsci.plugins.gitclient.JGitTool;
 import static org.junit.Assert.*;
@@ -67,15 +66,13 @@ public class GitToolTest {
     @Test
     public void testGetApplicableFromDescriptor() {
         GitTool.DescriptorImpl gitDescriptor = gitTool.getDescriptor();
-        GitTool.DescriptorImpl gitUsingCloneDescriptor = (new GitUsingCloneTool()).getDescriptor();
         GitTool.DescriptorImpl jgitDescriptor = (new JGitTool()).getDescriptor();
         GitTool.DescriptorImpl jgitApacheDescriptor = (new JGitApacheTool()).getDescriptor();
         List<ToolDescriptor<? extends GitTool>> toolDescriptors = gitDescriptor.getApplicableDescriptors();
         assertTrue("git tool descriptor not found in " + toolDescriptors, toolDescriptors.contains(gitDescriptor));
-        assertTrue("git using clone tool descriptor not found in " + toolDescriptors, toolDescriptors.contains(gitUsingCloneDescriptor));
         assertTrue("jgit tool descriptor not found in " + toolDescriptors, toolDescriptors.contains(jgitDescriptor));
         assertTrue("jgitapache tool descriptor not found in " + toolDescriptors, toolDescriptors.contains(jgitApacheDescriptor));
-        assertEquals("Wrong tool descriptor count in " + toolDescriptors, 4, toolDescriptors.size());
+        assertEquals("Wrong tool descriptor count in " + toolDescriptors, 3, toolDescriptors.size());
     }
 
 }

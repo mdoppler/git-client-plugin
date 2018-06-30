@@ -1,3 +1,0 @@
-<?jelly escape-by-default='true'?>
-<!-- Git using clone shows up in a part of Git installation configuration -->
-<j:jelly xmlns:j="jelly:core" />
