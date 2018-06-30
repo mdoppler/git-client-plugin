@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -1448,6 +1449,21 @@ public abstract class GitAPITestCase extends TestCase {
             Set<String> latestTags = w.git.getTagNames(matchPattern);
             assertThat(latestTags, hasItem("slashed/sample"));
             assertThat(latestTags, hasItem("slashed/sample-with-short-comment"));
+        }
+    }
+
+    public void test_getTags_after_clone() throws Exception {
+        w.git.clone_().url(localMirror()).repositoryName("origin").execute();
+        Set<GitObject> availableTags = w.git.getTags();
+
+        Set< GitObject > expectedTags = new HashSet< GitObject >();
+        expectedTags.add( new GitObject( "git-client-1.1.2", ObjectId.fromString( "b72f8b0eb90c71181aae33d018d2e082572847b0" ) ) );
+        expectedTags.add( new GitObject( "git-client-1.16.0", ObjectId.fromString( "b24875cb995865a9e3a802dc0e9c8041640df0a7" ) ) );
+        expectedTags.add( new GitObject( "git-client-1.19.5", ObjectId.fromString( "75233992621959b582bb6ac9cd80f0e550668381" ) ) );
+        expectedTags.add( new GitObject( "git-client-1.4.0", ObjectId.fromString( "22fc3729136dd9062a1955b40aaa867c44011b9f" ) ) );
+
+        for( GitObject expectedTag : expectedTags ) {
+          assertTrue( "expected tag: \"" + expectedTag.getName() + "\" with sha: \"" + expectedTag.getSHA1String() + "\" not found", availableTags.contains( expectedTag ) );
         }
     }
 
