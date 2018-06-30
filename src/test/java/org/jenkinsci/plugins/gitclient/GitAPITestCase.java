@@ -113,10 +113,19 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
+    private boolean clientSupportsRealClone() {
+        final boolean supportsRealClone = (w.git instanceof CliGitUsingCloneAPIImpl);
+        return supportsRealClone;
+    }
+
     private void assertCloneTimeout() {
         if (cloneTimeout > 0) {
-            // clone_() uses "git fetch" internally, not "git clone"
-            assertSubstringTimeout("git fetch", cloneTimeout);
+            if( clientSupportsRealClone() ) {
+                assertSubstringTimeout("git clone", cloneTimeout);
+            } else {
+                // clone is implemented using init and fetch
+                assertSubstringTimeout("git fetch", cloneTimeout);
+            }
         }
     }
 
@@ -462,8 +471,17 @@ public abstract class GitAPITestCase extends TestCase {
         }
     }
 
+    private String removeFileScheme( String filePathUrl ) {
+      final String fileSchemePrefix = "file://";
+      String filePath = filePathUrl;
+      if( filePathUrl.startsWith( fileSchemePrefix ) ) {
+        filePath = filePathUrl.substring( fileSchemePrefix.length() );
+      }
+      return filePath;
+    }
+
     private void check_remote_url(final String repositoryName) throws InterruptedException, IOException {
-        assertEquals("Wrong remote URL", localMirror(), w.git.getRemoteUrl(repositoryName));
+        assertEquals("Wrong remote URL", localMirror(), removeFileScheme( w.git.getRemoteUrl(repositoryName) ) );
         String remotes = w.cmd("git remote -v");
         assertTrue("remote URL has not been updated", remotes.contains(localMirror()));
     }
@@ -554,7 +572,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     public void test_clone_shallow() throws Exception
     {
-        w.git.clone_().url(localMirror()).repositoryName("origin").shallow(true).execute();
+        w.git.clone_().url("file://" + localMirror()).repositoryName("origin").shallow(true).execute();
         createRevParseBranch(); // Verify JENKINS-32258 is fixed
         w.git.checkout("origin/master", "master");
         check_remote_url("origin");
@@ -568,7 +586,7 @@ public abstract class GitAPITestCase extends TestCase {
 
     public void test_clone_shallow_with_depth() throws IOException, InterruptedException
     {
-        w.git.clone_().url(localMirror()).repositoryName("origin").shallow(true).depth(2).execute();
+        w.git.clone_().url( "file://" + localMirror()).repositoryName("origin").shallow(true).depth(2).execute();
         w.git.checkout("origin/master", "master");
         check_remote_url("origin");
         assertBranchesExist(w.git.getBranches(), "master");
@@ -617,7 +635,9 @@ public abstract class GitAPITestCase extends TestCase {
         check_remote_url("origin");
         assertBranchesExist(w.git.getBranches(), "master");
         assertAlternateFilePointsToLocalMirror();
-        assertNoObjectsInRepository();
+        if( !clientSupportsRealClone() ) {
+            assertNoObjectsInRepository();
+        }
         // Verify JENKINS-46737 expected log message is written
         String messages = StringUtils.join(handler.getMessages(), ";");
         assertTrue("Reference repo not logged in: " + messages, handler.containsMessageSubstring("Using reference repository: "));
@@ -645,11 +665,15 @@ public abstract class GitAPITestCase extends TestCase {
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
 
         assertTrue("Alternates file not found: " + alternates, w.exists(alternates));
-        final String expectedContent = localMirror().replace("\\", "/") + "/objects";
-        final String actualContent = w.contentOf(alternates);
-        assertEquals("Alternates file wrong content", expectedContent, actualContent);
+        final String expectedContent = convertToCanonicalPath( localMirror().replace("\\", "/") + "/objects" );
+        final String actualContent = convertToCanonicalPath( w.contentOf(alternates) );
+        assertEquals("Alternates file wrong content", expectedContent, actualContent );
         final File alternatesDir = new File(actualContent);
         assertTrue("Alternates destination " + actualContent + " missing", alternatesDir.isDirectory());
+    }
+
+    String convertToCanonicalPath( String path ) throws IOException {
+        return StringUtils.chomp( new File( path ).getCanonicalPath() );
     }
 
     public void test_clone_reference_working_repo() throws IOException, InterruptedException
@@ -665,9 +689,9 @@ public abstract class GitAPITestCase extends TestCase {
         assertBranchesExist(w.git.getBranches(), "master");
         final String alternates = ".git" + File.separator + "objects" + File.separator + "info" + File.separator + "alternates";
         assertTrue("Alternates file not found: " + alternates, w.exists(alternates));
-        final String expectedContent = SRC_DIR.replace("\\", "/") + "/.git/objects";
-        final String actualContent = w.contentOf(alternates);
-        assertEquals("Alternates file wrong content", expectedContent, actualContent);
+        final String expectedContent =  convertToCanonicalPath( SRC_DIR.replace("\\", "/") + "/.git/objects" );
+        final String actualContent = convertToCanonicalPath( w.contentOf(alternates) );
+        assertEquals("Alternates file wrong content",  expectedContent, actualContent );
         final File alternatesDir = new File(actualContent);
         assertTrue("Alternates destination " + actualContent + " missing", alternatesDir.isDirectory());
     }
@@ -692,15 +716,26 @@ public abstract class GitAPITestCase extends TestCase {
       w.git.clone_().url(localMirror()).refspecs(refspecs).repositoryName("origin").execute();
       w.git.withRepository((Repository repo, VirtualChannel channel) -> {
           String[] fetchRefSpecs = repo.getConfig().getStringList(ConfigConstants.CONFIG_REMOTE_SECTION, Constants.DEFAULT_REMOTE_NAME, "fetch");
-          assertEquals("Expected 2 refspecs", 2, fetchRefSpecs.length);
-          assertEquals("Incorrect refspec 1", "+refs/heads/master:refs/remotes/origin/master", fetchRefSpecs[0]);
-          assertEquals("Incorrect refspec 2", "+refs/heads/1.4.x:refs/remotes/origin/1.4.x", fetchRefSpecs[1]);
+          if( clientSupportsRealClone() ) {
+              assertEquals("Expected 3 refspecs", 3, fetchRefSpecs.length);
+              assertEquals("Incorrect refspec 1", "+refs/heads/*:refs/remotes/origin/*", fetchRefSpecs[0]);
+              assertEquals("Incorrect refspec 2", "+refs/heads/master:refs/remotes/origin/master", fetchRefSpecs[1]);
+              assertEquals("Incorrect refspec 3", "+refs/heads/1.4.x:refs/remotes/origin/1.4.x", fetchRefSpecs[2]);
+          } else {
+              assertEquals("Expected 2 refspecs", 2, fetchRefSpecs.length);
+              assertEquals("Incorrect refspec 1", "+refs/heads/master:refs/remotes/origin/master", fetchRefSpecs[0]);
+              assertEquals("Incorrect refspec 2", "+refs/heads/1.4.x:refs/remotes/origin/1.4.x", fetchRefSpecs[1]);
+          }
           return null;
       });
       Set<Branch> remoteBranches = w.git.getRemoteBranches();
       assertBranchesExist(remoteBranches, "origin/master");
       assertBranchesExist(remoteBranches, "origin/1.4.x");
-      assertEquals(2, remoteBranches.size());
+      if( clientSupportsRealClone() ) {
+          assertTrue( remoteBranches.size() > 2 );
+      } else {
+          assertEquals(2, remoteBranches.size());
+      }
     }
 
     public void test_detect_commit_in_repo() throws Exception {
@@ -4101,7 +4136,11 @@ public abstract class GitAPITestCase extends TestCase {
         w.git.fetch_().from(remote, refspecs).execute();
 
         try {
-            w.git.checkout().ref(Constants.MASTER).execute();
+            String unavailableBranch = Constants.MASTER;
+            if( clientSupportsRealClone() ) {
+                unavailableBranch = "1.4.x";
+            }
+            w.git.checkout().ref( unavailableBranch ).execute();
             fail("GitException expected");
         } catch (GitException e) {
             // expected
