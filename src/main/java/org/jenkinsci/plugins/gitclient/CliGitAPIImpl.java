@@ -1646,7 +1646,7 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     		@NonNull URIish url) throws GitException, InterruptedException {
     	return launchCommandWithCredentials(args, workDir, credentials, url, TIMEOUT);
     }
-    private String launchCommandWithCredentials(ArgumentListBuilder args, File workDir,
+    protected String launchCommandWithCredentials(ArgumentListBuilder args, File workDir,
                                                 StandardCredentials credentials,
                                                 @NonNull URIish url,
                                                 Integer timeout) throws GitException, InterruptedException {
@@ -2298,6 +2298,10 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                 throw new InterruptedException(interruptMessage);
             }
 
+            private boolean branchExistsLocally( String branchName ) throws GitException, InterruptedException {
+                return !launchCommand("branch", "--list", "--no-color", branchName ).isEmpty();
+            }
+
             public void execute() throws GitException, InterruptedException {
                 /* File.lastModified() limited by file system time, several
                  * popular Linux file systems only have 1 second granularity.
@@ -2340,7 +2344,11 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
                     ArgumentListBuilder args = new ArgumentListBuilder();
                     args.add("checkout");
                     if (branch != null) {
-                        args.add("-b");
+                        if( branchExistsLocally( branch ) ) {
+                            args.add("-B");
+                        } else {
+                            args.add("-b");
+                        }
                         args.add(branch);
                     } else {
                         args.add("-f");
@@ -2673,6 +2681,14 @@ public class CliGitAPIImpl extends LegacyCompatibleGitAPIImpl {
     /** {@inheritDoc} */
     public void addDefaultCredentials(StandardCredentials credentials) {
         this.defaultCredentials = credentials;
+    }
+
+    protected Map<String, StandardCredentials> getCredentials() {
+        return this.credentials;
+    }
+
+    protected StandardCredentials getDefaultCredentials() {
+        return this.defaultCredentials;
     }
 
     /** {@inheritDoc} */

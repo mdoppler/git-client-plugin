@@ -130,6 +130,9 @@ public class Git implements Serializable {
                     final PreemptiveAuthHttpClientConnectionFactory factory = new PreemptiveAuthHttpClientConnectionFactory();
                     return new JGitAPIImpl(f, listener, factory);
                 }
+                if (GitUsingCloneTool.MAGIC_EXENAME.equalsIgnoreCase(exe)) {
+                    return new CliGitUsingCloneAPIImpl(exe, f, listener, env);
+                }
                 // Ensure we return a backward compatible GitAPI, even API only claim to provide a GitClient
                 return new GitAPI(exe, f, listener, env);
             }
