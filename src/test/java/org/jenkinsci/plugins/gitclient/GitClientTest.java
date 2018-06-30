@@ -135,7 +135,7 @@ public class GitClientTest {
     @Parameterized.Parameters(name = "{0}")
     public static Collection gitObjects() {
         List<Object[]> arguments = new ArrayList<>();
-        String[] gitImplNames = {"git", "jgit", "jgitapache"};
+        String[] gitImplNames = { "git", "git-using-clone", "jgit", "jgitapache" };
         for (String gitImplName : gitImplNames) {
             Object[] item = {gitImplName};
             arguments.add(item);
